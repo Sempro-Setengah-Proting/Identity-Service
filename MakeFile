@@ -1,0 +1,15 @@
+migrate-up:
+	go run main.go db:migrate
+
+migrate-down:
+	go run main.go db:rollback
+
+migrate-create:
+	@if [ -z "$(name)" ]; then \
+		echo "Error: name is required. Usage: make migrate-create name=users"; \
+		exit 1; \
+	fi
+	migrate create -ext sql -dir migrations -seq $(name)
+
+run:
+	go run main.go
