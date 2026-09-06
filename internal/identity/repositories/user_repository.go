@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"identityservice/internal/identity/domain"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -13,5 +15,6 @@ var (
 type UserRepository interface {
 	CreateAccount(ctx context.Context, newUser domain.User) error
 	FindEmail(ctx context.Context, email string) (*domain.User, error)
+	FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 }
 

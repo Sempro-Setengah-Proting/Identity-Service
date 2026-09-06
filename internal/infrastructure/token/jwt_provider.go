@@ -24,7 +24,7 @@ func NewJWTProvider(secret string, ttl time.Duration) *JWTProvider {
 	}
 }
 
-func (j *JWTProvider) CreateToken(user domain.User) (string, error) {
+func (j *JWTProvider) GenerateAccessToken(user domain.User) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":  user.ID,
 		"username": user.Username,
@@ -40,3 +40,4 @@ func (j *JWTProvider) CreateToken(user domain.User) (string, error) {
 	}
 	return signed, nil
 }
+

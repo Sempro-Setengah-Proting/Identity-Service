@@ -6,11 +6,22 @@ import (
 	"identityservice/internal/identity/domain"
 	"identityservice/internal/identity/repositories"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type dbUser struct {
 	conn *gorm.DB
+}
+
+// FindByID implements [repositories.UserRepository].
+func (r *dbUser) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	var userData domain.User
+	err := r.conn.WithContext(ctx).Where("id", id).First(&userData).Error
+	if err != nil {
+		return nil, err
+	}
+	return &userData, nil
 }
 
 // FindEmail implements [repositories.UserRepository].

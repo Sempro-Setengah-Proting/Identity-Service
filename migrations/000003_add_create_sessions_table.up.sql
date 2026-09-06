@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    device_id VARCHAR(255) NOT NULL,
+    refresh_token VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+    CONSTRAINT fk_users_sessions FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
