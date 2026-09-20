@@ -152,11 +152,14 @@ func (l *localAuthUseCase) SignUp(ctx context.Context, newUser request.SignUpReq
 
 func (l *localAuthUseCase) FindEmail(ctx context.Context, email string) (*domain.User, error) {
 	user, err := l.userRepo.FindEmail(ctx, email)
-	if errors.Is(err, repositories.ErrUserNotFound) && user.Provider != "LOCAL" {
+	if errors.Is(err, repositories.ErrUserNotFound) {
 		return nil, ErrUserNotFound
 	}
 	if err != nil {
 		return nil, ErrInternalError
+	}
+	if user.Provider != "LOCAL" {
+		return nil, ErrUserNotFound
 	}
 
 	return user, nil
@@ -164,11 +167,14 @@ func (l *localAuthUseCase) FindEmail(ctx context.Context, email string) (*domain
 
 func (l *localAuthUseCase) ForgotPassword(ctx context.Context, payload request.ForgotPasswordRequest) error {
 	user, err := l.userRepo.FindEmail(ctx, payload.Email)
-	if errors.Is(err, repositories.ErrUserNotFound) && user.Provider != "LOCAL" {
+	if errors.Is(err, repositories.ErrUserNotFound) {
 		return ErrUserNotFound
 	}
 	if err != nil {
 		return ErrInternalError
+	}
+	if user.Provider != "LOCAL" {
+		return ErrUserNotFound
 	}
 
 	HashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
