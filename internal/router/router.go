@@ -1,7 +1,9 @@
 package router
 
 import (
+	"identityservice/internal/httpresponse"
 	handler "identityservice/internal/identity/handlers"
+	"net/http"
 
 	"github.com/labstack/echo/v5"
 )
@@ -14,6 +16,8 @@ type Dependencies struct {
 }
 
 func Register(e *echo.Echo, deps Dependencies) {
+	e.GET("/health", health)
+
 	identity := e.Group("/identity")
 	identity.POST("/refresh-token", deps.RefreshTokenController.RefreshToken)
 	oauth := identity.Group("/oauth")
@@ -27,4 +31,11 @@ func Register(e *echo.Echo, deps Dependencies) {
 	auth.GET("/find-email/:email", deps.AuthController.FindEmail)
 	auth.GET("/forget-password", deps.AuthController.ForgotPassword)
 
+}
+
+func health(c *echo.Context) error {
+	return c.JSON(http.StatusOK, httpresponse.Success(
+		map[string]string{"service": "identity-service"},
+		"service is healthy",
+	))
 }
