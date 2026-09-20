@@ -1,4 +1,0 @@
-./register_otp_store.go
-./session_repository.go
-./transaction_manager.go
-./user_repository.go

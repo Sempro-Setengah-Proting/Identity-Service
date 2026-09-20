@@ -1,4 +1,0 @@
-./auth_handler.go
-./oauth_handler.go
-./refresh_token_handler.go
-./register_otp_handler.go

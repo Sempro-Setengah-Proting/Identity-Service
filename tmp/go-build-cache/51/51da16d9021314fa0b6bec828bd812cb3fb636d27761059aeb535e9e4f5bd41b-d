@@ -1,3 +1,0 @@
-./auth_request.go
-./refresh_token_request.go
-./register_otp_request.go

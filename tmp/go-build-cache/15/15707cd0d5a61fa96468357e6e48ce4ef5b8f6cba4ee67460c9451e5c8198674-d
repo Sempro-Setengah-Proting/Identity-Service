@@ -1,7 +1,0 @@
-./access_token_generator.go
-./google_auth_usecase.go
-./local_auth_usecase.go
-./refresh_token_generator.go
-./refresh_token_usecases.go
-./request_register_otp_usecase.go
-./verify_register_otp_usecase.go
