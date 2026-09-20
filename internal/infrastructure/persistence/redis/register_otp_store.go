@@ -82,6 +82,7 @@ func NewRegisterOTPStore(client redisClient.UniversalClient) repositories.Regist
 func (s *registerOTPStore) SaveRegisterOTP(
 	ctx context.Context,
 	email string,
+	purpose domain.OTPPurpose,
 	otpHash string,
 	otpTTL time.Duration,
 	cooldownTTL time.Duration,
@@ -89,7 +90,7 @@ func (s *registerOTPStore) SaveRegisterOTP(
 	result, err := saveRegisterOTPScript.Run(
 		ctx,
 		s.client,
-		[]string{registerOTPKey(email), registerOTPCooldownKey(email)},
+		[]string{registerOTPKey(email, purpose), registerOTPCooldownKey(email, purpose)},
 		otpHash,
 		otpTTL.Milliseconds(),
 		cooldownTTL.Milliseconds(),
@@ -104,8 +105,12 @@ func (s *registerOTPStore) SaveRegisterOTP(
 	return nil
 }
 
-func (s *registerOTPStore) GetRegisterOTP(ctx context.Context, email string) (*domain.RegisterOTPState, error) {
-	values, err := s.client.HGetAll(ctx, registerOTPKey(email)).Result()
+func (s *registerOTPStore) GetRegisterOTP(
+	ctx context.Context,
+	email string,
+	purpose domain.OTPPurpose,
+) (*domain.RegisterOTPState, error) {
+	values, err := s.client.HGetAll(ctx, registerOTPKey(email, purpose)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -131,13 +136,14 @@ func (s *registerOTPStore) GetRegisterOTP(ctx context.Context, email string) (*d
 func (s *registerOTPStore) IncrementRegisterOTPAttempt(
 	ctx context.Context,
 	email string,
+	purpose domain.OTPPurpose,
 	expectedOTPHash string,
 	maxAttempts int,
 ) (int, error) {
 	result, err := incrementRegisterOTPAttemptScript.Run(
 		ctx,
 		s.client,
-		[]string{registerOTPKey(email)},
+		[]string{registerOTPKey(email, purpose)},
 		expectedOTPHash,
 		maxAttempts,
 	).Int64()
@@ -160,6 +166,7 @@ func (s *registerOTPStore) IncrementRegisterOTPAttempt(
 func (s *registerOTPStore) ConsumeRegisterOTP(
 	ctx context.Context,
 	email string,
+	purpose domain.OTPPurpose,
 	expectedOTPHash string,
 	maxAttempts int,
 	registrationTokenHash string,
@@ -169,8 +176,8 @@ func (s *registerOTPStore) ConsumeRegisterOTP(
 		ctx,
 		s.client,
 		[]string{
-			registerOTPKey(email),
-			registerOTPCooldownKey(email),
+			registerOTPKey(email, purpose),
+			registerOTPCooldownKey(email, purpose),
 			registrationProofKey(registrationTokenHash),
 		},
 		expectedOTPHash,
@@ -196,11 +203,16 @@ func (s *registerOTPStore) ConsumeRegisterOTP(
 	}
 }
 
-func (s *registerOTPStore) DeleteRegisterOTP(ctx context.Context, email string, expectedOTPHash string) error {
+func (s *registerOTPStore) DeleteRegisterOTP(
+	ctx context.Context,
+	email string,
+	purpose domain.OTPPurpose,
+	expectedOTPHash string,
+) error {
 	result, err := deleteRegisterOTPScript.Run(
 		ctx,
 		s.client,
-		[]string{registerOTPKey(email), registerOTPCooldownKey(email)},
+		[]string{registerOTPKey(email, purpose), registerOTPCooldownKey(email, purpose)},
 		expectedOTPHash,
 	).Int64()
 	if err != nil {
@@ -235,12 +247,12 @@ func (r *registerOTPStore) FindRegistrationProof(
 	return email, nil
 }
 
-func registerOTPKey(email string) string {
-	return "otp:register:{" + email + "}"
+func registerOTPKey(email string, purpose domain.OTPPurpose) string {
+	return fmt.Sprintf("otp:%s:{%s}", purpose, email)
 }
 
-func registerOTPCooldownKey(email string) string {
-	return "otp:register:cooldown:{" + email + "}"
+func registerOTPCooldownKey(email string, purpose domain.OTPPurpose) string {
+	return fmt.Sprintf("otp:%s:cooldown:{%s}", purpose, email)
 }
 
 func registrationProofKey(registrationTokenHash string) string {

@@ -7,9 +7,9 @@ import (
 )
 
 type Dependencies struct {
-	OAuthController       *handler.OAuthHandler
-	AuthController        *handler.AuthHandler
-	RegisterOTPController *handler.RegisterOTPHandler
+	OAuthController        *handler.OAuthHandler
+	AuthController         *handler.AuthHandler
+	RegisterOTPController  *handler.RegisterOTPHandler
 	RefreshTokenController *handler.RefreshTokenHandler
 }
 
@@ -24,5 +24,7 @@ func Register(e *echo.Echo, deps Dependencies) {
 	auth.POST("/sign-up", deps.AuthController.SignUp)
 	auth.POST("/register/otp/request", deps.RegisterOTPController.Request)
 	auth.POST("/register/otp/verify", deps.RegisterOTPController.Verify)
+	auth.GET("/find-email/:email", deps.AuthController.FindEmail)
+	auth.GET("/forget-password", deps.AuthController.ForgotPassword)
 
 }

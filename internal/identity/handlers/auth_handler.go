@@ -63,3 +63,35 @@ func (h AuthHandler) SignUp(c *echo.Context) error {
 		ExpiresIn:    1800,
 	}, "sign up success"))
 }
+
+func (h AuthHandler) ForgotPassword(c *echo.Context) error {
+	ctx := c.Request().Context()
+	payload := new(request.ForgotPasswordRequest)
+	if err := c.Bind(payload); err != nil {
+		return c.JSON(http.StatusBadRequest, httpresponse.Error("invalid payload"))
+	}
+	if err := c.Validate(payload); err != nil {
+		return c.JSON(http.StatusBadRequest, httpresponse.Error("payload validation failed"))
+	}
+	if payload.Password != payload.ConfirmPassword {
+		return c.JSON(http.StatusBadRequest, httpresponse.Error("password and confirm password do not match"))
+	}
+
+	err := h.usecase.ForgotPassword(ctx, *payload)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, httpresponse.Error(err.Error()))
+	}
+	return c.JSON(http.StatusOK, httpresponse.Success(nil, "forgot password success"))
+}
+
+func (h AuthHandler) FindEmail(c *echo.Context) error {
+	ctx := c.Request().Context()
+
+	email := c.Param("email")
+	user, err := h.usecase.FindEmail(ctx, email)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, httpresponse.Error(err.Error()))
+	}
+
+	return c.JSON(http.StatusOK, httpresponse.Success(user, "email found"))
+}

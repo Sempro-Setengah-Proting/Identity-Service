@@ -14,6 +14,15 @@ type dbUser struct {
 	conn *gorm.DB
 }
 
+// ForgePassword implements [repositories.UserRepository].
+func (r *dbUser) ForgetPassword(ctx context.Context, email string, password string) error {
+	err := r.conn.WithContext(ctx).Model(&domain.User{}).Where("email", email).Update("password", password).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // FindByID implements [repositories.UserRepository].
 func (r *dbUser) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	var userData domain.User

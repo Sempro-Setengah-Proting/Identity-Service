@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"identityservice/internal/identity/domain"
 	"identityservice/internal/identity/dto/request"
 	"identityservice/internal/identity/repositories"
 
@@ -32,7 +33,7 @@ func (u *verifyRegisterOTPUseCase) Verify(
 	payload request.VerifyRegisterOTPRequest,
 ) (string, int64, error) {
 	email := normalizeRegisterEmail(payload.Email)
-	state, err := u.otpStore.GetRegisterOTP(ctx, email)
+	state, err := u.otpStore.GetRegisterOTP(ctx, email, domain.OTPRegister)
 	if errors.Is(err, repositories.ErrRegisterOTPNotFound) {
 		return "", 0, ErrOTPNotFound
 	}
@@ -51,6 +52,7 @@ func (u *verifyRegisterOTPUseCase) Verify(
 		attemptCount, incrementErr := u.otpStore.IncrementRegisterOTPAttempt(
 			ctx,
 			email,
+			domain.OTPRegister,
 			state.OTPHash,
 			registerOTPMaxAttempts,
 		)
@@ -79,6 +81,7 @@ func (u *verifyRegisterOTPUseCase) Verify(
 		err = u.otpStore.ConsumeRegisterOTP(
 			ctx,
 			email,
+			domain.OTPRegister,
 			state.OTPHash,
 			registerOTPMaxAttempts,
 			registrationTokenHash,

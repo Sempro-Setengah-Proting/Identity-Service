@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"identityservice/internal/identity/domain"
 	"identityservice/internal/identity/dto/request"
 	"identityservice/internal/identity/providers"
 	"identityservice/internal/identity/repositories"
@@ -29,7 +30,7 @@ var (
 	ErrOTPInvalid             = errors.New("invalid OTP")
 	ErrOTPMaxAttempts         = errors.New("OTP max attempts")
 	ErrOTPResendCooldown      = errors.New("OTP resend cooldown")
-	ErrSmtpError                = errors.New("smtp error")
+	ErrSmtpError              = errors.New("smtp error")
 )
 
 type requestRegisterOTPUseCase struct {
@@ -82,6 +83,7 @@ func (u *requestRegisterOTPUseCase) Request(ctx context.Context, payload request
 	if err = u.otpStore.SaveRegisterOTP(
 		ctx,
 		email,
+		domain.OTPRegister,
 		string(otpHash),
 		registerOTPTTL,
 		registerOTPResendCooldown,
@@ -95,7 +97,7 @@ func (u *requestRegisterOTPUseCase) Request(ctx context.Context, payload request
 
 	if err = u.emailSender.SendRegisterOTP(ctx, email, otp); err != nil {
 		log.Println(err)
-		_ = u.otpStore.DeleteRegisterOTP(ctx, email, string(otpHash))
+		_ = u.otpStore.DeleteRegisterOTP(ctx, email, domain.OTPRegister, string(otpHash))
 		return ErrSmtpError
 	}
 

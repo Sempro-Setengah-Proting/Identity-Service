@@ -2,9 +2,11 @@ package email
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"identityservice/internal/infrastructure/config"
+	"io"
 	"log"
 	"strings"
 
@@ -14,6 +16,9 @@ import (
 type Mailer struct {
 	cfg *config.Config
 }
+
+//go:embed travpal-logo.png
+var travPalLogo []byte
 
 func NewMailer(cfg *config.Config) *Mailer {
 	return &Mailer{cfg: cfg}
@@ -51,6 +56,12 @@ func (m *Mailer) SendEmail(ctx context.Context, to string, subject string, body 
 	message.SetHeader("To", to)
 	message.SetHeader("Subject", subject)
 	message.SetBody("text/html", body)
+	if strings.Contains(body, "cid:travpal-logo.png") {
+		message.Embed("travpal-logo.png", gomail.SetCopyFunc(func(w io.Writer) error {
+			_, err := w.Write(travPalLogo)
+			return err
+		}))
+	}
 
 	dialer := gomail.NewDialer(
 		m.cfg.SMTPHost,
@@ -92,23 +103,44 @@ func (m *Mailer) SendRegisterOTP(ctx context.Context, to string, otp string) err
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; border-radius: 8px;">
-        <h2 style="color: #333333; text-align: center;">Verify Your Email</h2>
-        <p style="color: #555555; font-size: 16px; line-height: 1.5;">
-            Thank you for registering. Use the verification code below to continue.
-        </p>
-        <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center; border: 1px solid #e5e7eb;">
-            <p style="color: #6b7280; font-size: 14px; text-transform: uppercase; font-weight: 600;">Your Verification Code</p>
-            <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #111827;">%s</div>
-        </div>
-        <p style="color: #555555; font-size: 14px; line-height: 1.5;">
-            This code expires in <strong>5 minutes</strong>. Do not share this code with anyone.
-        </p>
-        <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-            If you did not request this email, you can safely ignore it.
-        </p>
-    </div>
+<body style="margin: 0; padding: 0; background-color: #f6f6f6; font-family: Arial, Helvetica, sans-serif;">
+    <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="width: 100%%; margin: 0; padding: 0; background-color: #f6f6f6;">
+        <tr>
+            <td align="center" style="padding: 38px 20px 42px;">
+                <table role="presentation" width="334" cellspacing="0" cellpadding="0" border="0" style="width: 100%%; max-width: 334px;">
+                    <tr>
+                        <td align="center" style="padding: 0 0 18px;">
+                            <img src="cid:travpal-logo.png" width="88" height="50" alt="TravPal" style="display: block; width: 88px; height: 50px; margin: 0 auto; border: 0; outline: none; text-decoration: none;">
+                            <div style="margin-top: 9px; color: #66767a; font-size: 19px; font-weight: 700; line-height: 23px; letter-spacing: -0.6px;">TravPal</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 24px 20px 22px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);">
+                            <h2 style="margin: 0 0 14px; color: #111111; font-size: 16px; font-weight: 400; line-height: 20px;">Verify Your Email</h2>
+                            <p style="margin: 0; color: #111111; font-size: 13px; font-weight: 400; line-height: 15px;">
+                                Thank you for registering. Use the verification code below to continue.
+                            </p>
+                            <div style="margin: 20px auto; text-align: center;">
+                                <p style="display: none; margin: 0; color: #111111; font-size: 11px; font-weight: 600; line-height: 13px; text-transform: uppercase; letter-spacing: 0.25px;">Your Verification Code</p>
+                                <div style="display: inline-block; padding: 11px 18px; background-color: #d9dcdd; color: #101d1f; font-size: 23px; font-weight: 700; line-height: 24px; letter-spacing: 6px; white-space: nowrap;">%s</div>
+                            </div>
+                            <p style="margin: 0 0 14px; color: #111111; font-size: 13px; font-weight: 400; line-height: 15px;">
+                                This code expires in <strong style="font-weight: 700;">5 minutes</strong>. Do not share this code with anyone.
+                            </p>
+                            <p style="margin: 0; color: #111111; font-size: 13px; font-weight: 400; line-height: 15px;">
+                                If you did not request this email, you can safely ignore it.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="padding: 12px 0 0; color: #a8afb1; font-size: 11px; font-weight: 400; line-height: 14px;">
+                            ©&nbsp; 2026 TravPal. All rights reserved.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
 `, otp)

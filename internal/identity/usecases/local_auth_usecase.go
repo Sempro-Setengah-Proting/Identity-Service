@@ -14,6 +14,7 @@ var (
 	ErrUserAlreadyExists        = errors.New("user not found")
 	ErrInvalidCredentials       = errors.New("invalid credentials")
 	ErrInternalError            = errors.New("Internal error")
+	ErrUserNotFound             = errors.New("User not found")
 	ErrInvalidRegistrationToken = errors.New("invalid registration token")
 )
 
@@ -139,6 +140,7 @@ func (l *localAuthUseCase) SignUp(ctx context.Context, newUser request.SignUpReq
 	err = l.otpRepo.DeleteRegisterOTP(
 		ctx,
 		newUser.Email,
+		domain.OTPRegister,
 		registrationTokenHash,
 	)
 	if err != nil {
@@ -148,9 +150,43 @@ func (l *localAuthUseCase) SignUp(ctx context.Context, newUser request.SignUpReq
 	return accessToken, refreshToken, nil
 }
 
+func (l *localAuthUseCase) FindEmail(ctx context.Context, email string) (*domain.User, error) {
+	user, err := l.userRepo.FindEmail(ctx, email)
+	if errors.Is(err, repositories.ErrUserNotFound) && user.Provider != "LOCAL" {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, ErrInternalError
+	}
+
+	return user, nil
+}
+
+func (l *localAuthUseCase) ForgotPassword(ctx context.Context, payload request.ForgotPasswordRequest) error {
+	user, err := l.userRepo.FindEmail(ctx, payload.Email)
+	if errors.Is(err, repositories.ErrUserNotFound) && user.Provider != "LOCAL" {
+		return ErrUserNotFound
+	}
+	if err != nil {
+		return ErrInternalError
+	}
+
+	HashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return ErrInternalError
+	}
+	err = l.userRepo.ForgetPassword(ctx, payload.Email, string(HashedPassword))
+	if err != nil {
+		return ErrInternalError
+	}
+	return nil
+}
+
 type LocalAuthUseCase interface {
 	SignIn(ctx context.Context, payload request.SignInRequest) (string, string, error)
 	SignUp(ctx context.Context, newUser request.SignUpRequest) (string, string, error)
+	FindEmail(ctx context.Context, email string) (*domain.User, error)
+	ForgotPassword(ctx context.Context, payload request.ForgotPasswordRequest) error
 }
 
 func NewLocalAuthUseCase(
