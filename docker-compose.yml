@@ -56,6 +56,21 @@ services:
     networks:
       - be_identity
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: identity-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - be_identity
+
 volumes:
   postgres_data:
 
