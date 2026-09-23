@@ -178,7 +178,7 @@ func (s *registerOTPStore) ConsumeRegisterOTP(
 		[]string{
 			registerOTPKey(email, purpose),
 			registerOTPCooldownKey(email, purpose),
-			registrationProofKey(registrationTokenHash),
+			registrationProofKey(registrationTokenHash, purpose),
 		},
 		expectedOTPHash,
 		maxAttempts,
@@ -227,12 +227,9 @@ func (s *registerOTPStore) DeleteRegisterOTP(
 func (r *registerOTPStore) FindRegistrationProof(
 	ctx context.Context,
 	tokenHash string,
+	purpose domain.OTPPurpose,
 ) (string, error) {
-
-	key := fmt.Sprintf(
-		"register:verified:%s",
-		tokenHash,
-	)
+	key := registrationProofKey(tokenHash, purpose)
 
 	email, err := r.client.Get(ctx, key).Result()
 	if err != nil {
@@ -247,6 +244,22 @@ func (r *registerOTPStore) FindRegistrationProof(
 	return email, nil
 }
 
+func (r *registerOTPStore) ConsumeRegistrationProof(
+	ctx context.Context,
+	tokenHash string,
+	purpose domain.OTPPurpose,
+) (string, error) {
+	email, err := r.client.GetDel(ctx, registrationProofKey(tokenHash, purpose)).Result()
+	if errors.Is(err, redisClient.Nil) {
+		return "", repositories.ErrRegistrationTokenNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return email, nil
+}
+
 func registerOTPKey(email string, purpose domain.OTPPurpose) string {
 	return fmt.Sprintf("otp:%s:{%s}", purpose, email)
 }
@@ -255,6 +268,6 @@ func registerOTPCooldownKey(email string, purpose domain.OTPPurpose) string {
 	return fmt.Sprintf("otp:%s:cooldown:{%s}", purpose, email)
 }
 
-func registrationProofKey(registrationTokenHash string) string {
-	return "register:verified:" + registrationTokenHash
+func registrationProofKey(registrationTokenHash string, purpose domain.OTPPurpose) string {
+	return fmt.Sprintf("otp:verified:%s:%s", purpose, registrationTokenHash)
 }

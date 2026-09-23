@@ -29,7 +29,7 @@ func Register(e *echo.Echo, deps Dependencies) {
 	auth.POST("/register/otp/request", deps.RegisterOTPController.Request)
 	auth.POST("/register/otp/verify", deps.RegisterOTPController.Verify)
 	auth.GET("/find-email/:email", deps.AuthController.FindEmail)
-	auth.GET("/forget-password", deps.AuthController.ForgotPassword)
+	auth.POST("/forgot-password/reset", deps.AuthController.ForgotPassword)
 
 }
 

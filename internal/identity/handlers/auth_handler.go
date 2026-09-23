@@ -73,15 +73,15 @@ func (h AuthHandler) ForgotPassword(c *echo.Context) error {
 	if err := c.Validate(payload); err != nil {
 		return c.JSON(http.StatusBadRequest, httpresponse.Error("payload validation failed"))
 	}
-	if payload.Password != payload.ConfirmPassword {
-		return c.JSON(http.StatusBadRequest, httpresponse.Error("password and confirm password do not match"))
+	if payload.NewPassword != payload.ConfirmPassword {
+		return c.JSON(http.StatusBadRequest, httpresponse.Error("new password and confirm password do not match"))
 	}
 
 	err := h.usecase.ForgotPassword(ctx, *payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, httpresponse.Error(err.Error()))
 	}
-	return c.JSON(http.StatusOK, httpresponse.Success(nil, "forgot password success"))
+	return c.JSON(http.StatusOK, httpresponse.Success(nil, "password reset success"))
 }
 
 func (h AuthHandler) FindEmail(c *echo.Context) error {

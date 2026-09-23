@@ -16,7 +16,7 @@ type dbUser struct {
 
 // ForgePassword implements [repositories.UserRepository].
 func (r *dbUser) ForgetPassword(ctx context.Context, email string, password string) error {
-	err := r.conn.WithContext(ctx).Model(&domain.User{}).Where("email", email).Update("password", password).Error
+	err := dbFromContext(ctx, r.conn).Model(&domain.User{}).Where("email", email).Update("password", password).Error
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func (r *dbUser) ForgetPassword(ctx context.Context, email string, password stri
 // FindByID implements [repositories.UserRepository].
 func (r *dbUser) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	var userData domain.User
-	err := r.conn.WithContext(ctx).Where("id", id).First(&userData).Error
+	err := dbFromContext(ctx, r.conn).Where("id", id).First(&userData).Error
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (r *dbUser) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, erro
 // FindEmail implements [repositories.UserRepository].
 func (r *dbUser) FindEmail(ctx context.Context, email string) (*domain.User, error) {
 	var userData domain.User
-	err := r.conn.WithContext(ctx).Where("email", email).First(&userData).Error
+	err := dbFromContext(ctx, r.conn).Where("email", email).First(&userData).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, repositories.ErrUserNotFound
@@ -50,8 +50,8 @@ func (r *dbUser) FindEmail(ctx context.Context, email string) (*domain.User, err
 }
 
 // createAccount implements [repositories.UserRepository].
-func (r *dbUser) CreateAccount(ctx context.Context, newUser domain.User) error {
-	err := r.conn.WithContext(ctx).Create(&newUser).Error
+func (r *dbUser) CreateAccount(ctx context.Context, newUser *domain.User) error {
+	err := dbFromContext(ctx, r.conn).Create(newUser).Error
 	if err != nil {
 		return err
 	}

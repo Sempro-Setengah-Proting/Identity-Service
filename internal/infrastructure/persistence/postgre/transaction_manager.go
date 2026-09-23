@@ -12,6 +12,14 @@ type dbTransaction struct {
 }
 type transactionKey struct{}
 
+func dbFromContext(ctx context.Context, fallback *gorm.DB) *gorm.DB {
+	if tx, ok := ctx.Value(transactionKey{}).(*gorm.DB); ok {
+		return tx.WithContext(ctx)
+	}
+
+	return fallback.WithContext(ctx)
+}
+
 func NewTransactionRepository(conn *gorm.DB) repositories.TransactionManager {
 	return &dbTransaction{conn: conn}
 }

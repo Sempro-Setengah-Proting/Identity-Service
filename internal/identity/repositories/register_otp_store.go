@@ -55,5 +55,11 @@ type RegisterOTPStore interface {
 	FindRegistrationProof(
 		ctx context.Context,
 		tokenHash string,
+		purpose domain.OTPPurpose,
+	) (string, error)
+	ConsumeRegistrationProof(
+		ctx context.Context,
+		tokenHash string,
+		purpose domain.OTPPurpose,
 	) (string, error)
 }

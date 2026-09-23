@@ -54,7 +54,7 @@ func (g *googleAuthUseCase) SignInWithGoogle(ctx context.Context, idToken string
 			Provider:   "GOOGLE",
 		}
 
-		err = g.googleAuthRepo.CreateAccount(ctx, newUser)
+		err = g.googleAuthRepo.CreateAccount(ctx, &newUser)
 		if err != nil {
 			return "", "", ErrInternal
 		}

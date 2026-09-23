@@ -79,7 +79,7 @@ func (l *localAuthUseCase) SignUp(ctx context.Context, newUser request.SignUpReq
 	//hash regis token
 	registrationTokenHash := HashRegistrationToken(newUser.RegistrationToken)
 	//cek apakah hash regis token ada di redis
-	verifiedEmail, err := l.otpRepo.FindRegistrationProof(ctx, registrationTokenHash)
+	verifiedEmail, err := l.otpRepo.FindRegistrationProof(ctx, registrationTokenHash, domain.OTPRegister)
 	if errors.Is(err, repositories.ErrRegistrationTokenNotFound) {
 		return "", "", ErrInvalidRegistrationToken
 	}
@@ -111,12 +111,6 @@ func (l *localAuthUseCase) SignUp(ctx context.Context, newUser request.SignUpReq
 		Username:    newUser.Name,
 		Provider:    "LOCAL",
 	}
-	//buat account dan dapatkan user id
-	// buat acces token
-	accessToken, err := l.accessToken.GenerateAccessToken(*user)
-	if err != nil {
-		return "", "", err
-	}
 	// buat refresh token
 	refreshToken, err := l.refreshToken.GenerateRefreshToken()
 	if err != nil {
@@ -125,23 +119,27 @@ func (l *localAuthUseCase) SignUp(ctx context.Context, newUser request.SignUpReq
 	hashRefreshToken := l.refreshToken.GenerateHashToken(refreshToken)
 	// create session
 
-	l.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
-		err = l.userRepo.CreateAccount(txCtx, *user)
-		if err != nil {
-			return err
+	var accessToken string
+	err = l.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if createErr := l.userRepo.CreateAccount(txCtx, user); createErr != nil {
+			return createErr
 		}
-		err = l.sessionRepo.CreateSession(txCtx, user.ID, newUser.DeviceID, hashRefreshToken)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
 
-	err = l.otpRepo.DeleteRegisterOTP(
+		accessToken, err = l.accessToken.GenerateAccessToken(*user)
+		if err != nil {
+			return err
+		}
+
+		return l.sessionRepo.CreateSession(txCtx, user.ID, newUser.DeviceID, hashRefreshToken)
+	})
+	if err != nil {
+		return "", "", ErrInternalError
+	}
+
+	_, err = l.otpRepo.ConsumeRegistrationProof(
 		ctx,
-		newUser.Email,
-		domain.OTPRegister,
 		registrationTokenHash,
+		domain.OTPRegister,
 	)
 	if err != nil {
 		return "", "", ErrInternalError
@@ -166,7 +164,20 @@ func (l *localAuthUseCase) FindEmail(ctx context.Context, email string) (*domain
 }
 
 func (l *localAuthUseCase) ForgotPassword(ctx context.Context, payload request.ForgotPasswordRequest) error {
-	user, err := l.userRepo.FindEmail(ctx, payload.Email)
+	registrationTokenHash := HashRegistrationToken(payload.RegistrationToken)
+	verifiedEmail, err := l.otpRepo.ConsumeRegistrationProof(
+		ctx,
+		registrationTokenHash,
+		domain.OTPForgotPassword,
+	)
+	if errors.Is(err, repositories.ErrRegistrationTokenNotFound) {
+		return ErrInvalidRegistrationToken
+	}
+	if err != nil {
+		return ErrInternalError
+	}
+
+	user, err := l.userRepo.FindEmail(ctx, verifiedEmail)
 	if errors.Is(err, repositories.ErrUserNotFound) {
 		return ErrUserNotFound
 	}
@@ -177,14 +188,15 @@ func (l *localAuthUseCase) ForgotPassword(ctx context.Context, payload request.F
 		return ErrUserNotFound
 	}
 
-	HashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return ErrInternalError
 	}
-	err = l.userRepo.ForgetPassword(ctx, payload.Email, string(HashedPassword))
+	err = l.userRepo.ForgetPassword(ctx, verifiedEmail, string(hashedPassword))
 	if err != nil {
 		return ErrInternalError
 	}
+
 	return nil
 }
 
