@@ -46,7 +46,14 @@ func main() {
 	registerOTPStore := redisRepositories.NewRegisterOTPStore(redisClient)
 	emailSender := emailInfrastructure.NewMailer(cfg)
 	txManager := repositories.NewTransactionRepository(db)
-	GoogleAuthUsecase := usecases.NewGoogleAuthUseCase(authRepo, *googleVerifier, jwtProvider, refreshToken, sessionRepo)
+	GoogleAuthUsecase := usecases.NewGoogleAuthUseCase(
+		txManager,
+		authRepo,
+		*googleVerifier,
+		jwtProvider,
+		refreshToken,
+		sessionRepo,
+	)
 	GoogleAuthHandler := handler.NewOAuthHandler(GoogleAuthUsecase)
 	LocalAuthUsecase := usecases.NewLocalAuthUseCase(
 		txManager,

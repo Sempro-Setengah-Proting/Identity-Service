@@ -26,6 +26,7 @@ type googleAuthUseCase struct {
 	accessToken    TokenGenerator
 	refreshToken   RefreshTokenGenerator
 	sessionRepo    repositories.SessionRepository
+	txManager      repositories.TransactionManager
 }
 
 // SignInWithGoogle implements [GoogleAuthUseCase].
@@ -41,49 +42,48 @@ func (g *googleAuthUseCase) SignInWithGoogle(ctx context.Context, idToken string
 	if err != nil && !errors.Is(err, repositories.ErrUserNotFound) {
 		return "", "", ErrInternal
 	}
-	//jika user ditemukan maka akan ke login jika ga ada yg maka harus registrasi
 
-	//user tidak di temukan
-	if errors.Is(err, repositories.ErrUserNotFound) {
-		//register
-		newUser := domain.User{
+	isNewUser := errors.Is(err, repositories.ErrUserNotFound)
+	if isNewUser {
+		user = &domain.User{
 			Username:   googleUser.DisplayName,
 			Email:      googleUser.Email,
 			ProviderId: googleUser.ProvideId,
 			AvatarUrl:  googleUser.AvatarUrl,
 			Provider:   "GOOGLE",
 		}
-
-		err = g.googleAuthRepo.CreateAccount(ctx, &newUser)
-		if err != nil {
-			return "", "", ErrInternal
-		}
-		user = &newUser
 	}
 
 	// cek apakah providernya sesuai atau tidak
 	if user.Provider != "GOOGLE" {
 		return "", "", ErrDifferentAuthProvider
 	}
-	// buat acces token
-	accessToken, err := g.accessToken.GenerateAccessToken(*user)
-	if err != nil {
-		return "", "", err
-	}
 	// buat refresh token
 	refreshToken, err := g.refreshToken.GenerateRefreshToken()
 	if err != nil {
 		return "", "", err
 	}
-	HashRefreshToken := g.refreshToken.GenerateHashToken(refreshToken)
+	hashRefreshToken := g.refreshToken.GenerateHashToken(refreshToken)
+
+	var accessToken string
+	err = g.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if isNewUser {
+			if createErr := g.googleAuthRepo.CreateAccount(txCtx, user); createErr != nil {
+				return createErr
+			}
+		}
+
+		accessToken, err = g.accessToken.GenerateAccessToken(*user)
+		if err != nil {
+			return err
+		}
+
+		return g.sessionRepo.CreateSession(txCtx, user.ID, deviceID, hashRefreshToken)
+	})
 	if err != nil {
-		return "", "", err
+		return "", "", ErrInternal
 	}
-	// create session
-	err = g.sessionRepo.CreateSession(ctx, user.ID, deviceID, HashRefreshToken)
-	if err != nil {
-		return "", "", err
-	}
+
 	return accessToken, refreshToken, nil
 }
 
@@ -91,12 +91,20 @@ type GoogleAuthUseCase interface {
 	SignInWithGoogle(ctx context.Context, idToken string, deviceID string) (string, string, error)
 }
 
-func NewGoogleAuthUseCase(repo repositories.UserRepository, verifier oauth.GoogleVerifier, accToken TokenGenerator, refresh RefreshTokenGenerator, sessionRepo repositories.SessionRepository) GoogleAuthUseCase {
+func NewGoogleAuthUseCase(
+	txManager repositories.TransactionManager,
+	repo repositories.UserRepository,
+	verifier oauth.GoogleVerifier,
+	accToken TokenGenerator,
+	refresh RefreshTokenGenerator,
+	sessionRepo repositories.SessionRepository,
+) GoogleAuthUseCase {
 	return &googleAuthUseCase{
 		googleVerifer:  verifier,
 		googleAuthRepo: repo,
 		accessToken:    accToken,
 		refreshToken:   refresh,
 		sessionRepo:    sessionRepo,
+		txManager:      txManager,
 	}
 }
