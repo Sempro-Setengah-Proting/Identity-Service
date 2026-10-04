@@ -1,6 +1,7 @@
 package router
 
 import (
+	"identityservice/docs"
 	"identityservice/internal/httpresponse"
 	handler "identityservice/internal/identity/handlers"
 	"net/http"
@@ -16,6 +17,7 @@ type Dependencies struct {
 }
 
 func Register(e *echo.Echo, deps Dependencies) {
+	docs.Register(e)
 	e.GET("/health", health)
 
 	identity := e.Group("/identity")

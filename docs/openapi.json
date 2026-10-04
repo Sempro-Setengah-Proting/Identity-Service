@@ -1,0 +1,520 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TrapVal Identity API",
+    "description": "Identity and authentication service for TrapVal.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": ".",
+      "description": "Current Identity Service host"
+    }
+  ],
+  "tags": [
+    { "name": "System", "description": "Service health." },
+    { "name": "Authentication", "description": "Local account authentication." },
+    { "name": "Registration", "description": "Local account registration and registration OTP verification." },
+    { "name": "OAuth", "description": "Authentication using an external identity provider." },
+    { "name": "Password Recovery", "description": "Local account lookup and password reset." },
+    { "name": "Session", "description": "Refresh-token rotation." }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Check service health",
+        "description": "Returns the health status of the Identity Service.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is healthy.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "example": {
+                  "status": "success",
+                  "message": "service is healthy",
+                  "data": { "service": "identity-service" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity/refresh-token": {
+      "post": {
+        "tags": ["Session"],
+        "summary": "Refresh an access token",
+        "description": "Rotates a refresh token for a device and returns a new token pair.",
+        "operationId": "refreshToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/RefreshTokenSuccess" },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/identity/oauth/sign-in-google": {
+      "post": {
+        "tags": ["OAuth"],
+        "summary": "Sign in with Google",
+        "description": "Verifies a Google ID token, creates the Google-backed account when needed, and returns an application token pair.",
+        "operationId": "signInWithGoogle",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/OAuthSignInRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SignInSuccess" },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/identity/auth/sign-in": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Sign in with email and password",
+        "description": "Authenticates a local account and returns an access token and refresh token.",
+        "operationId": "signIn",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignInRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SignInSuccess" },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/identity/auth/sign-up": {
+      "post": {
+        "tags": ["Registration"],
+        "summary": "Create a local account",
+        "description": "Creates a local account using a registration token produced by successful OTP verification and returns an application token pair.",
+        "operationId": "signUp",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignUpRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SignUpSuccess" },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/identity/auth/register/otp/request": {
+      "post": {
+        "tags": ["Registration"],
+        "summary": "Request a registration OTP",
+        "description": "Sends a six-digit registration OTP to an email address. A resend cooldown applies.",
+        "operationId": "requestRegistrationOTP",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RequestRegisterOTPRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration OTP sent.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" },
+                "example": { "status": "success", "message": "register OTP sent" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "409": {
+            "description": "The email is already registered.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "status": "error", "message": "email already registered" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/identity/auth/register/otp/verify": {
+      "post": {
+        "tags": ["Registration"],
+        "summary": "Verify a registration OTP",
+        "description": "Verifies the six-digit registration OTP and returns a short-lived registration token.",
+        "operationId": "verifyRegistrationOTP",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VerifyRegisterOTPRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration OTP verified.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VerifyRegisterOTPResponseEnvelope" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/identity/auth/find-email/{email}": {
+      "get": {
+        "tags": ["Password Recovery"],
+        "summary": "Find a local account by email",
+        "description": "Returns the stored local user record for the supplied email address.",
+        "operationId": "findEmail",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "description": "Email address to look up.",
+            "schema": { "type": "string", "format": "email" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local account found.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponseEnvelope" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/identity/auth/forgot-password/reset": {
+      "post": {
+        "tags": ["Password Recovery"],
+        "summary": "Reset a local account password",
+        "description": "Resets the password associated with a valid password-recovery registration token.",
+        "operationId": "resetForgottenPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ForgotPasswordRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset succeeded.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" },
+                "example": { "status": "success", "message": "password reset success" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT access token returned by a successful sign-in or sign-up. No currently registered route requires this scheme."
+      }
+    },
+    "responses": {
+      "SignInSuccess": {
+        "description": "Sign-in succeeded.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/AuthResponseEnvelope" },
+            "example": {
+              "status": "success",
+              "message": "sign in success",
+              "data": {
+                "access_token": "eyJhbGciOiJIUzI1NiIs...",
+                "refresh_token": "opaque-refresh-token",
+                "token_type": "Bearer",
+                "expires_in": 1800
+              }
+            }
+          }
+        }
+      },
+      "SignUpSuccess": {
+        "description": "Account creation succeeded.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/AuthResponseEnvelope" },
+            "example": {
+              "status": "success",
+              "message": "sign up success",
+              "data": {
+                "access_token": "eyJhbGciOiJIUzI1NiIs...",
+                "refresh_token": "opaque-refresh-token",
+                "token_type": "Bearer",
+                "expires_in": 1800
+              }
+            }
+          }
+        }
+      },
+      "RefreshTokenSuccess": {
+        "description": "Token refresh succeeded.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/AuthResponseEnvelope" },
+            "example": {
+              "status": "success",
+              "message": "refresh token success",
+              "data": {
+                "access_token": "eyJhbGciOiJIUzI1NiIs...",
+                "refresh_token": "new-opaque-refresh-token",
+                "token_type": "Bearer",
+                "expires_in": 1800
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "The payload, credentials, token, or requested operation is invalid.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "status": "error", "message": "payload validation failed" }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "The OTP resend cooldown or maximum verification-attempt limit was reached.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "examples": {
+              "cooldown": { "value": { "status": "error", "message": "please wait before requesting another OTP" } },
+              "maxAttempts": { "value": { "status": "error", "message": "maximum OTP attempts reached" } }
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "An internal operation failed.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "status": "error", "message": "internal error" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "MessageResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message"],
+        "properties": {
+          "status": { "type": "string", "const": "success" },
+          "message": { "type": "string" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message"],
+        "properties": {
+          "status": { "type": "string", "const": "error" },
+          "message": { "type": "string" }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message", "data"],
+        "properties": {
+          "status": { "type": "string", "const": "success" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["service"],
+            "properties": {
+              "service": { "type": "string", "const": "identity-service" }
+            }
+          }
+        }
+      },
+      "AuthResponseEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message", "data"],
+        "properties": {
+          "status": { "type": "string", "const": "success" },
+          "message": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/AuthResponse" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["access_token", "refresh_token", "token_type", "expires_in"],
+        "properties": {
+          "access_token": { "type": "string", "description": "JWT access token." },
+          "refresh_token": { "type": "string", "description": "Opaque refresh token." },
+          "token_type": { "type": "string", "const": "Bearer" },
+          "expires_in": { "type": "integer", "format": "int64", "const": 1800 }
+        }
+      },
+      "VerifyRegisterOTPResponseEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message", "data"],
+        "properties": {
+          "status": { "type": "string", "const": "success" },
+          "message": { "type": "string", "const": "register OTP verified" },
+          "data": { "$ref": "#/components/schemas/VerifyRegisterOTPResponse" }
+        }
+      },
+      "VerifyRegisterOTPResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["registration_token", "expires_in"],
+        "properties": {
+          "registration_token": { "type": "string" },
+          "expires_in": { "type": "integer", "format": "int64", "const": 600 }
+        }
+      },
+      "UserResponseEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message", "data"],
+        "properties": {
+          "status": { "type": "string", "const": "success" },
+          "message": { "type": "string", "const": "email found" },
+          "data": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "description": "The user shape serialized by the current domain model.",
+        "additionalProperties": false,
+        "required": ["ID", "username", "email", "password", "phone_number", "provider", "ProviderId", "avatar_url", "created_at", "updated_at"],
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "description": "Password hash as returned by the current implementation." },
+          "phone_number": { "type": "string" },
+          "provider": { "type": "string" },
+          "ProviderId": { "type": "string" },
+          "avatar_url": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OAuthSignInRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id_token", "device_id"],
+        "properties": {
+          "id_token": { "type": "string", "description": "Google ID token." },
+          "device_id": { "type": "string" }
+        }
+      },
+      "SignInRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "password", "device_id"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password" },
+          "device_id": { "type": "string" }
+        }
+      },
+      "SignUpRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "password", "phone_number", "device_id", "name", "registration_token"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password", "minLength": 6 },
+          "phone_number": { "type": "string" },
+          "device_id": { "type": "string" },
+          "name": { "type": "string" },
+          "registration_token": { "type": "string" }
+        }
+      },
+      "RequestRegisterOTPRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email"],
+        "properties": {
+          "email": { "type": "string", "format": "email" }
+        }
+      },
+      "VerifyRegisterOTPRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "otp"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "otp": { "type": "string", "pattern": "^[0-9]{6}$" }
+        }
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["refresh_token", "device_id"],
+        "properties": {
+          "refresh_token": { "type": "string" },
+          "device_id": { "type": "string" }
+        }
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["new_password", "confirm_password", "registration_token"],
+        "properties": {
+          "new_password": { "type": "string", "format": "password", "minLength": 8, "maxLength": 128 },
+          "confirm_password": { "type": "string", "format": "password", "minLength": 8, "maxLength": 128 },
+          "registration_token": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -67,7 +67,7 @@ func main() {
 	RequestRegisterOTPUsecase := usecases.NewRequestRegisterOTPUseCase(authRepo, registerOTPStore, emailSender)
 	VerifyRegisterOTPUsecase := usecases.NewVerifyRegisterOTPUseCase(registerOTPStore)
 	RegisterOTPHandler := handler.NewRegisterOTPHandler(RequestRegisterOTPUsecase, VerifyRegisterOTPUsecase)
-	RefreshTokenUsecase := usecases.NewRefreshTokenUseCase()
+	RefreshTokenUsecase := usecases.NewRefreshTokenUseCase(sessionRepo, jwtProvider, refreshToken, authRepo)
 	RefreshTokenHandler := handler.NewRefreshTokenHandler(RefreshTokenUsecase)
 
 	router.Register(e, router.Dependencies{

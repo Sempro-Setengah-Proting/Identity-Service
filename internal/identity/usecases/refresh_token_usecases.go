@@ -23,14 +23,19 @@ type RefreshTokenUseCase interface {
 	RefreshToken(ctx context.Context, refreshToken string, deviceID string) (string, string, error)
 }
 
-func NewRefreshTokenUseCase() RefreshTokenUseCase {
-	return &refreshTokenUsecase{}
+func NewRefreshTokenUseCase(sessionRepo repositories.SessionRepository, accToken TokenGenerator, refreshToken RefreshTokenGenerator, userRepo repositories.UserRepository) RefreshTokenUseCase {
+	return &refreshTokenUsecase{
+		sessionRepo:  sessionRepo,
+		accToken:     accToken,
+		refreshToken: refreshToken,
+		userRepo:     userRepo,
+	}
 }
 
 func (r *refreshTokenUsecase) RefreshToken(ctx context.Context, refreshToken string, deviceID string) (string, string, error) {
-	//hash resfresh token lama 
+	//hash resfresh token lama
 	oldHashRefreshToken := r.refreshToken.GenerateHashToken(refreshToken)
-	
+
 	//cari apakah refresh token untuk device id ini valid
 	session, err := r.sessionRepo.VerifySession(ctx, oldHashRefreshToken, deviceID)
 	if err != nil {
