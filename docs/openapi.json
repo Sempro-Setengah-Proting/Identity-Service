@@ -17,7 +17,8 @@
     { "name": "Registration", "description": "Local account registration and registration OTP verification." },
     { "name": "OAuth", "description": "Authentication using an external identity provider." },
     { "name": "Password Recovery", "description": "Local account lookup and password reset." },
-    { "name": "Session", "description": "Refresh-token rotation." }
+    { "name": "Session", "description": "Refresh-token rotation." },
+    { "name": "Profile", "description": "Current user profile lookup and updates." }
   ],
   "paths": {
     "/health": {
@@ -43,7 +44,7 @@
         }
       }
     },
-    "/identity/refresh-token": {
+    "/refresh-token": {
       "post": {
         "tags": ["Session"],
         "summary": "Refresh an access token",
@@ -63,7 +64,7 @@
         }
       }
     },
-    "/identity/oauth/sign-in-google": {
+    "/oauth/sign-in-google": {
       "post": {
         "tags": ["OAuth"],
         "summary": "Sign in with Google",
@@ -83,7 +84,7 @@
         }
       }
     },
-    "/identity/auth/sign-in": {
+    "/auth/sign-in": {
       "post": {
         "tags": ["Authentication"],
         "summary": "Sign in with email and password",
@@ -99,11 +100,34 @@
         },
         "responses": {
           "200": { "$ref": "#/components/responses/SignInSuccess" },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": {
+            "description": "Invalid payload, missing or invalid fields, account not found, incorrect password, or a different authentication provider.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "examples": {
+                  "missingDevice": { "value": { "status": "error", "message": "device_id is required" } },
+                  "invalidEmail": { "value": { "status": "error", "message": "email must be a valid email address" } },
+                  "accountNotFound": { "value": { "status": "error", "message": "no account found for this email" } },
+                  "incorrectPassword": { "value": { "status": "error", "message": "incorrect password" } },
+                  "differentProvider": { "value": { "status": "error", "message": "email registered with another provider; use the matching sign-in method" } }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Sign-in failed during user lookup, password verification, session lookup/deletion/creation, token generation, or payload validation. The message identifies the failed stage; technical details are logged by the service.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "status": "error", "message": "failed to create session during sign in" }
+              }
+            }
+          }
         }
       }
     },
-    "/identity/auth/sign-up": {
+    "/auth/sign-up": {
       "post": {
         "tags": ["Registration"],
         "summary": "Create a local account",
@@ -123,7 +147,7 @@
         }
       }
     },
-    "/identity/auth/register/otp/request": {
+    "/auth/register/otp/request": {
       "post": {
         "tags": ["Registration"],
         "summary": "Request a registration OTP",
@@ -162,7 +186,7 @@
         }
       }
     },
-    "/identity/auth/register/otp/verify": {
+    "/auth/register/otp/verify": {
       "post": {
         "tags": ["Registration"],
         "summary": "Verify a registration OTP",
@@ -191,11 +215,11 @@
         }
       }
     },
-    "/identity/auth/find-email/{email}": {
+    "/auth/find-email/{email}": {
       "get": {
         "tags": ["Password Recovery"],
         "summary": "Find a local account by email",
-        "description": "Returns the stored local user record for the supplied email address.",
+        "description": "Returns public local account data for the supplied email address.",
         "operationId": "findEmail",
         "parameters": [
           {
@@ -219,11 +243,151 @@
         }
       }
     },
-    "/identity/auth/forgot-password/reset": {
+    "/user/me": {
+      "get": {
+        "tags": ["Profile"],
+        "summary": "Get the current user profile",
+        "description": "Returns the current user profile. Through the API Gateway, provide a Bearer access token; the gateway validates its user_id claim and forwards X-User-ID. Direct Identity Service requests require the X-User-ID header (UUID).",
+        "operationId": "getMe",
+        "security": [{ "BearerAuth": [] }, { "UserIDHeader": [] }],
+        "responses": {
+          "200": {
+            "description": "Current user profile found.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileResponseEnvelope" },
+                "example": {
+                  "status": "success",
+                  "message": "Find profile success",
+                  "data": {
+                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                    "username": "Hafid",
+                    "email": "hafid@example.com",
+                    "phone_number": "081234567890",
+                    "provider": "local",
+                    "provider_id": "",
+                    "avatar_url": ""
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/user/edit": {
+      "put": {
+        "tags": ["Profile"],
+        "summary": "Edit the current user profile",
+        "description": "Updates the supplied name and/or phone_number for the current user. Omitted fields remain unchanged. Through the API Gateway, provide a Bearer access token; the gateway validates its user_id claim and forwards X-User-ID. Direct Identity Service requests require the X-User-ID header (UUID).",
+        "operationId": "editProfile",
+        "security": [{ "BearerAuth": [] }, { "UserIDHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EditProfileRequest" },
+              "example": { "name": "Hafid", "phone_number": "081234567890" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" },
+                "example": { "status": "success", "message": "Edit profile succesfuly" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/auth/forgot-password/otp/request": {
+      "post": {
+        "tags": ["Password Recovery"],
+        "summary": "Request a password reset OTP",
+        "description": "Sends a six-digit OTP to an existing local account. The OTP expires after 5 minutes and a 60-second resend cooldown applies. Redis keys use FORGOT_PASSWORD, independently of registration OTPs. No access token is required.",
+        "operationId": "requestForgotPasswordOTP",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RequestForgotPasswordOTPRequest" },
+              "example": { "email": "hafid@example.com" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset OTP sent.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" },
+                "example": { "status": "success", "message": "forgot password OTP sent" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload, unknown email, or an account that does not use local authentication.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "examples": {
+                  "unknownEmail": { "value": { "status": "error", "message": "no account found for this email" } },
+                  "nonLocalAccount": { "value": { "status": "error", "message": "password reset is only available for local accounts" } }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/auth/forgot-password/otp/verify": {
+      "post": {
+        "tags": ["Password Recovery"],
+        "summary": "Verify a password reset OTP",
+        "description": "Verifies and consumes the FORGOT_PASSWORD OTP with at most 5 attempts. Returns a single-use registration_token valid for 10 minutes, to be submitted to /auth/forgot-password/reset. Registration OTPs and tokens cannot be used for password reset. No access token is required.",
+        "operationId": "verifyForgotPasswordOTP",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VerifyForgotPasswordOTPRequest" },
+              "example": { "email": "hafid@example.com", "otp": "123456" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset OTP verified.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VerifyForgotPasswordOTPResponseEnvelope" },
+                "example": {
+                  "status": "success",
+                  "message": "forgot password OTP verified",
+                  "data": { "registration_token": "opaque-password-reset-token", "expires_in": 600 }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/auth/forgot-password/reset": {
       "post": {
         "tags": ["Password Recovery"],
         "summary": "Reset a local account password",
-        "description": "Resets the password associated with a valid password-recovery registration token.",
+        "description": "Resets a local account password using the single-use registration_token returned by /auth/forgot-password/otp/verify. new_password and confirm_password must match. Registration-purpose tokens are not accepted.",
         "operationId": "resetForgottenPassword",
         "requestBody": {
           "required": true,
@@ -254,7 +418,13 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "JWT access token returned by a successful sign-in or sign-up. No currently registered route requires this scheme."
+        "description": "JWT access token returned by a successful sign-in or sign-up. The API Gateway validates signature, expiration, and the user_id claim, then forwards X-User-ID to Identity Service."
+      },
+      "UserIDHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-User-ID",
+        "description": "User UUID forwarded by the API Gateway after JWT validation. Used for direct Identity Service requests; the profile handlers do not independently authenticate this header."
       }
     },
     "responses": {
@@ -410,6 +580,16 @@
           "data": { "$ref": "#/components/schemas/VerifyRegisterOTPResponse" }
         }
       },
+      "VerifyForgotPasswordOTPResponseEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message", "data"],
+        "properties": {
+          "status": { "type": "string", "const": "success" },
+          "message": { "type": "string", "const": "forgot password OTP verified" },
+          "data": { "$ref": "#/components/schemas/VerifyRegisterOTPResponse" }
+        }
+      },
       "VerifyRegisterOTPResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -429,22 +609,37 @@
           "data": { "$ref": "#/components/schemas/User" }
         }
       },
+      "ProfileResponseEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message", "data"],
+        "properties": {
+          "status": { "type": "string", "const": "success" },
+          "message": { "type": "string", "const": "Find profile success" },
+          "data": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "EditProfileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": ["string", "null"], "minLength": 3, "maxLength": 128, "description": "Optional name. Omit or send null to leave unchanged." },
+          "phone_number": { "type": ["string", "null"], "minLength": 3, "maxLength": 15, "description": "Optional phone number. Omit or send null to leave unchanged." }
+        }
+      },
       "User": {
         "type": "object",
-        "description": "The user shape serialized by the current domain model.",
+        "description": "Public user data returned by email lookup and current profile endpoints.",
         "additionalProperties": false,
-        "required": ["ID", "username", "email", "password", "phone_number", "provider", "ProviderId", "avatar_url", "created_at", "updated_at"],
+        "required": ["id", "username", "email", "phone_number", "provider", "provider_id", "avatar_url"],
         "properties": {
-          "ID": { "type": "string", "format": "uuid" },
+          "id": { "type": "string", "format": "uuid" },
           "username": { "type": "string" },
           "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "description": "Password hash as returned by the current implementation." },
           "phone_number": { "type": "string" },
           "provider": { "type": "string" },
-          "ProviderId": { "type": "string" },
-          "avatar_url": { "type": "string" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "provider_id": { "type": "string" },
+          "avatar_url": { "type": "string" }
         }
       },
       "OAuthSignInRequest": {
@@ -495,6 +690,12 @@
           "email": { "type": "string", "format": "email" },
           "otp": { "type": "string", "pattern": "^[0-9]{6}$" }
         }
+      },
+      "RequestForgotPasswordOTPRequest": {
+        "$ref": "#/components/schemas/RequestRegisterOTPRequest"
+      },
+      "VerifyForgotPasswordOTPRequest": {
+        "$ref": "#/components/schemas/VerifyRegisterOTPRequest"
       },
       "RefreshTokenRequest": {
         "type": "object",

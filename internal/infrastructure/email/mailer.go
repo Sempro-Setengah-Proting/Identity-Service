@@ -96,6 +96,14 @@ func (m *Mailer) SendEmail(ctx context.Context, to string, subject string, body 
 }
 
 func (m *Mailer) SendRegisterOTP(ctx context.Context, to string, otp string) error {
+	return m.sendOTP(ctx, to, otp, "Verify Your Email", "Thank you for registering. Use the verification code below to continue.", "Your Registration Verification Code")
+}
+
+func (m *Mailer) SendForgotPasswordOTP(ctx context.Context, to string, otp string) error {
+	return m.sendOTP(ctx, to, otp, "Reset Your Password", "Use the verification code below to reset your TravPal password.", "Your Password Reset Verification Code")
+}
+
+func (m *Mailer) sendOTP(ctx context.Context, to, otp, title, description, subject string) error {
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -116,9 +124,9 @@ func (m *Mailer) SendRegisterOTP(ctx context.Context, to string, otp string) err
                     </tr>
                     <tr>
                         <td style="padding: 24px 20px 22px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);">
-                            <h2 style="margin: 0 0 14px; color: #111111; font-size: 16px; font-weight: 400; line-height: 20px;">Verify Your Email</h2>
+                            <h2 style="margin: 0 0 14px; color: #111111; font-size: 16px; font-weight: 400; line-height: 20px;">%s</h2>
                             <p style="margin: 0; color: #111111; font-size: 13px; font-weight: 400; line-height: 15px;">
-                                Thank you for registering. Use the verification code below to continue.
+                                %s
                             </p>
                             <div style="margin: 20px auto; text-align: center;">
                                 <p style="display: none; margin: 0; color: #111111; font-size: 11px; font-weight: 600; line-height: 13px; text-transform: uppercase; letter-spacing: 0.25px;">Your Verification Code</p>
@@ -143,7 +151,7 @@ func (m *Mailer) SendRegisterOTP(ctx context.Context, to string, otp string) err
     </table>
 </body>
 </html>
-`, otp)
+`, title, description, otp)
 
-	return m.SendEmail(ctx, to, "Your Registration Verification Code", body)
+	return m.SendEmail(ctx, to, subject, body)
 }

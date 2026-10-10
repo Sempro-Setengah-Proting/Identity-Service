@@ -32,8 +32,12 @@ func (u *verifyRegisterOTPUseCase) Verify(
 	ctx context.Context,
 	payload request.VerifyRegisterOTPRequest,
 ) (string, int64, error) {
-	email := normalizeRegisterEmail(payload.Email)
-	state, err := u.otpStore.GetRegisterOTP(ctx, email, domain.OTPRegister)
+	return verifyOTP(ctx, u.otpStore, payload.Email, payload.OTP, domain.OTPRegister)
+}
+
+func verifyOTP(ctx context.Context, otpStore repositories.RegisterOTPStore, rawEmail, otp string, purpose domain.OTPPurpose) (string, int64, error) {
+	email := normalizeRegisterEmail(rawEmail)
+	state, err := otpStore.GetRegisterOTP(ctx, email, purpose)
 	if errors.Is(err, repositories.ErrRegisterOTPNotFound) {
 		return "", 0, ErrOTPNotFound
 	}
@@ -44,15 +48,15 @@ func (u *verifyRegisterOTPUseCase) Verify(
 		return "", 0, ErrOTPMaxAttempts
 	}
 
-	if err = bcrypt.CompareHashAndPassword([]byte(state.OTPHash), []byte(payload.OTP)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(state.OTPHash), []byte(otp)); err != nil {
 		if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return "", 0, ErrInternalError
 		}
 
-		attemptCount, incrementErr := u.otpStore.IncrementRegisterOTPAttempt(
+		attemptCount, incrementErr := otpStore.IncrementRegisterOTPAttempt(
 			ctx,
 			email,
-			domain.OTPRegister,
+			purpose,
 			state.OTPHash,
 			registerOTPMaxAttempts,
 		)
@@ -78,10 +82,10 @@ func (u *verifyRegisterOTPUseCase) Verify(
 		}
 		registrationTokenHash := HashRegistrationToken(registrationToken)
 
-		err = u.otpStore.ConsumeRegisterOTP(
+		err = otpStore.ConsumeRegisterOTP(
 			ctx,
 			email,
-			domain.OTPRegister,
+			purpose,
 			state.OTPHash,
 			registerOTPMaxAttempts,
 			registrationTokenHash,

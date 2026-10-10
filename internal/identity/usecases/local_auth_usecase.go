@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"errors"
+	"fmt"
 	"identityservice/internal/identity/domain"
 	"identityservice/internal/identity/dto/request"
 	"identityservice/internal/identity/repositories"
@@ -16,6 +17,13 @@ var (
 	ErrInternalError            = errors.New("Internal error")
 	ErrUserNotFound             = errors.New("User not found")
 	ErrInvalidRegistrationToken = errors.New("invalid registration token")
+	ErrSignInUserLookup         = errors.New("failed to look up user during sign in")
+	ErrSignInPasswordCheck      = errors.New("failed to verify password during sign in")
+	ErrSignInSessionLookup      = errors.New("failed to look up existing session during sign in")
+	ErrSignInSessionDelete      = errors.New("failed to delete existing session during sign in")
+	ErrSignInAccessToken        = errors.New("failed to generate access token during sign in")
+	ErrSignInRefreshToken       = errors.New("failed to generate refresh token during sign in")
+	ErrSignInSessionCreate      = errors.New("failed to create session during sign in")
 )
 
 type localAuthUseCase struct {
@@ -32,44 +40,47 @@ func (l *localAuthUseCase) SignIn(ctx context.Context, payload request.SignInReq
 	user, err := l.userRepo.FindEmail(ctx, payload.Email)
 
 	if errors.Is(err, repositories.ErrUserNotFound) {
-		return "", "", ErrInternalError
+		return "", "", ErrUserNotFound
 	}
 	if err != nil {
-		return "", "", ErrInternalError
+		return "", "", fmt.Errorf("%w: %w", ErrSignInUserLookup, err)
 	}
 	if user.Provider != "LOCAL" {
 		return "", "", ErrDifferentAuthProvider
 	}
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password)); err != nil {
-		return "", "", ErrInvalidCredentials
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return "", "", ErrInvalidCredentials
+		}
+		return "", "", fmt.Errorf("%w: %w", ErrSignInPasswordCheck, err)
 	}
 	//cari session
 	session, err := l.sessionRepo.FindSessionByUserID(ctx, user.ID)
 
 	if err != nil && !errors.Is(err, repositories.ErrSessionNotFound) {
-		return "", "", ErrInvalidCredentials
+		return "", "", fmt.Errorf("%w: %w", ErrSignInSessionLookup, err)
 	}
 	//hapus session
 	if err == nil {
 		err = l.sessionRepo.DeleteSession(ctx, session.ID)
 		if err != nil {
-			return "", "", ErrInternalError
+			return "", "", fmt.Errorf("%w: %w", ErrSignInSessionDelete, err)
 		}
 	}
 	//buat token baru
 	accessToken, err := l.accessToken.GenerateAccessToken(*user)
 	if err != nil {
-		return "", "", ErrInternalError
+		return "", "", fmt.Errorf("%w: %w", ErrSignInAccessToken, err)
 	}
 	refreshToken, err := l.refreshToken.GenerateRefreshToken()
 	if err != nil {
-		return "", "", ErrInternalError
+		return "", "", fmt.Errorf("%w: %w", ErrSignInRefreshToken, err)
 	}
 	hashRefreshToken := l.refreshToken.GenerateHashToken(refreshToken)
 	// create kembali session
 	err = l.sessionRepo.CreateSession(ctx, user.ID, payload.DeviceID, hashRefreshToken)
 	if err != nil {
-		return "", "", ErrInternalError
+		return "", "", fmt.Errorf("%w: %w", ErrSignInSessionCreate, err)
 	}
 	return accessToken, refreshToken, nil
 }

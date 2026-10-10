@@ -1,15 +1,19 @@
 package databases
 
 import (
+	"context"
 	"log"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func ConnectDb(dbUrl string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(dbUrl), &gorm.Config{})
+func ConnectDb(dbURL string) (*pgxpool.Pool, error) {
+	db, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
+		return nil, err
+	}
+	if err = db.Ping(context.Background()); err != nil {
+		db.Close()
 		return nil, err
 	}
 

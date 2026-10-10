@@ -10,12 +10,11 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-
 type OAuthHandler struct {
 	usecase usecases.GoogleAuthUseCase
 }
 
-func NewOAuthHandler(usecase usecases.GoogleAuthUseCase) *OAuthHandler{
+func NewOAuthHandler(usecase usecases.GoogleAuthUseCase) *OAuthHandler {
 	return &OAuthHandler{
 		usecase: usecase,
 	}
@@ -37,11 +36,11 @@ func (h OAuthHandler) SignIn(c *echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, httpresponse.Error(err.Error()))
 	}
-	
+
 	return c.JSON(http.StatusOK, httpresponse.Success(response.AuthResponse{
-		AccessToken: token,
+		AccessToken:  token,
 		RefreshToken: refreshToken,
-		TokenType: "Bearer",
-		ExpiresIn: 1800,
-	},"sign in success"))
+		TokenType:    "Bearer",
+		ExpiresIn:    1800,
+	}, "sign in success"))
 }

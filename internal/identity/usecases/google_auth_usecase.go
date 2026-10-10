@@ -6,6 +6,7 @@ import (
 	"identityservice/internal/identity/domain"
 	"identityservice/internal/identity/repositories"
 	"identityservice/internal/infrastructure/oauth"
+	"log"
 )
 
 var (
@@ -35,6 +36,7 @@ func (g *googleAuthUseCase) SignInWithGoogle(ctx context.Context, idToken string
 	//verify id token
 	googleUser, err := g.googleVerifer.VerifyGoogleToken(ctx, idToken)
 	if err != nil {
+		log.Printf("[GOOGLE AUTH] Validation failed: %v", err)
 		return "", "", ErrInvalidGoogleToken
 	}
 	//cari berdasarkan email

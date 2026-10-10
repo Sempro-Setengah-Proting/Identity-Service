@@ -4,36 +4,44 @@ import (
 	"context"
 	"identityservice/internal/identity/repositories"
 
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type dbTransaction struct {
-	conn *gorm.DB
+	conn *pgxpool.Pool
 }
 type transactionKey struct{}
 
-func dbFromContext(ctx context.Context, fallback *gorm.DB) *gorm.DB {
-	if tx, ok := ctx.Value(transactionKey{}).(*gorm.DB); ok {
-		return tx.WithContext(ctx)
-	}
-
-	return fallback.WithContext(ctx)
+type DBTX interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-func NewTransactionRepository(conn *gorm.DB) repositories.TransactionManager {
+func DBFromContext(ctx context.Context, fallback *pgxpool.Pool) DBTX {
+	if tx, ok := ctx.Value(transactionKey{}).(pgx.Tx); ok {
+		return tx
+	}
+
+	return fallback
+}
+
+func NewTransactionRepository(conn *pgxpool.Pool) repositories.TransactionManager {
 	return &dbTransaction{conn: conn}
 }
 
 func (t *dbTransaction) WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
-	return t.conn.WithContext(ctx).Transaction(
-		func(tx *gorm.DB) error {
-			txCtx := context.WithValue(
-				ctx,
-				transactionKey{},
-				tx,
-			)
+	tx, err := t.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 
-			return fn(txCtx)
-		},
-	)
+	txCtx := context.WithValue(ctx, transactionKey{}, tx)
+	if err = fn(txCtx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

@@ -25,7 +25,7 @@ const swaggerUI = `<!doctype html>
   <script>
     window.onload = function () {
       SwaggerUIBundle({
-        url: new URL("../openapi.json", window.location.href).toString(),
+        url: window.location.pathname.replace(/\/documentation\/?$/, "/openapi.json"),
         dom_id: "#swagger-ui",
         deepLinking: true,
         presets: [SwaggerUIBundle.presets.apis],
